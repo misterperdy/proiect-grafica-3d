@@ -54,3 +54,30 @@ public:
 private:
     void Cleanup();
 };
+
+// --- SOARE (Un cub galben stralucitor) ---
+class Sun
+{
+public:
+    GLuint VaoId, VboId, EboId;
+    Sun();
+    ~Sun();
+    void Init();
+    void Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale);
+private:
+    void Cleanup();
+};
+
+// --- CROSSHAIR (Tinta 2D) ---
+class Crosshair
+{
+public:
+    GLuint VaoId, VboId, EboId;
+    Crosshair();
+    ~Crosshair();
+    void Init();
+    // Nu avem nevoie de pozitie/scale in Render, pentru ca e mereu in centru
+    void Render(GLuint modelLocation);
+private:
+    void Cleanup();
+};  

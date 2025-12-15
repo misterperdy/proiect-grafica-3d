@@ -329,3 +329,164 @@ void Cloud::Cleanup() {
     if (EboId) glDeleteBuffers(1, &EboId);
     if (VaoId) glDeleteVertexArrays(1, &VaoId);
 }
+
+// ==========================================================
+//                       SUN CLASS
+// ==========================================================
+
+Sun::Sun() {
+    VaoId = 0; VboId = 0; EboId = 0;
+}
+
+Sun::~Sun() {
+    Cleanup();
+}
+
+void Sun::Init() {
+    // Un cub simplu 1x1x1
+    float s = 0.5f;
+
+    // Culoare: GALBEN STRALUCITOR
+    float r = 1.0f, g = 1.0f, b = 0.0f;
+
+    std::vector<GLfloat> vertices = {
+        // X, Y, Z, W       R, G, B, A      NX, NY, NZ
+        // Fata
+        -s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
+         s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
+         s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
+        -s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
+        // Spate
+        -s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
+         s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
+         s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
+        -s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
+        // Stanga
+        -s, -s, -s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
+        -s, -s,  s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
+        -s,  s,  s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
+        -s,  s, -s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
+        // Dreapta
+         s, -s, -s, 1.0f,   r, g, b, 1.0f,  1,0,0,
+         s, -s,  s, 1.0f,   r, g, b, 1.0f,  1,0,0,
+         s,  s,  s, 1.0f,   r, g, b, 1.0f,  1,0,0,
+         s,  s, -s, 1.0f,   r, g, b, 1.0f,  1,0,0,
+         // Sus
+         -s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,1,0,
+          s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,1,0,
+          s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,1,0,
+         -s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,1,0,
+         // Jos
+         -s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
+          s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
+          s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
+         -s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
+    };
+
+    std::vector<GLuint> indices = {
+        0, 1, 2, 2, 3, 0,       // Fata
+        4, 5, 6, 6, 7, 4,       // Spate
+        8, 9, 10, 10, 11, 8,    // Stanga
+        12, 13, 14, 14, 15, 12, // Dreapta
+        16, 17, 18, 18, 19, 16, // Sus
+        20, 21, 22, 22, 23, 20  // Jos
+    };
+
+    glGenVertexArrays(1, &VaoId); glBindVertexArray(VaoId);
+    glGenBuffers(1, &VboId); glBindBuffer(GL_ARRAY_BUFFER, VboId);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+    glGenBuffers(1, &EboId); glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EboId);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+    int stride = 11 * sizeof(GLfloat);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, stride, (void*)0); glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void*)(4 * sizeof(GLfloat))); glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat))); glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+}
+
+void Sun::Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale) {
+    glBindVertexArray(VaoId);
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, position);
+    model = glm::scale(model, scale);
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &model[0][0]);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Sun::Cleanup() {
+    if (VboId) glDeleteBuffers(1, &VboId);
+    if (EboId) glDeleteBuffers(1, &EboId);
+    if (VaoId) glDeleteVertexArrays(1, &VaoId);
+}
+
+// ==========================================================
+//                     CROSSHAIR CLASS
+// ==========================================================
+
+Crosshair::Crosshair() {
+    VaoId = 0; VboId = 0; EboId = 0;
+}
+
+Crosshair::~Crosshair() {
+    Cleanup();
+}
+
+void Crosshair::Init() {
+    // 1. DIMENSIUNE (CAT DE MARE E PUNCTUL)
+    // 0.02f era urias. Punem 0.0025f pentru un punct fin.
+    float s = 0.0025f;
+
+    // 2. ASPECT RATIO (SA FIE PATRAT, NU DREPTUNGHI)
+    // Deoarece ecranul e mai lat decat inalt (1200 vs 900), 
+    // trebuie sa facem inaltimea (h) putin mai mare in procente ca sa para patrat in pixeli.
+    // 1200 / 900 = 1.33
+    float h = s * 1.33f;
+
+    // 3. POZITIE (CENTRARE MANUALA)
+    // Daca ti se pare ca e prea jos, mareste valoarea asta (ex: 0.01f sau 0.02f)
+    // Daca e perfect, las-o 0.0f.
+    float yCorrection = 0.0f;
+
+    std::vector<GLfloat> vertices = {
+        // X,      Y,              Z,    W       R,G,B,A (Alb)      Normala
+        -s, -h + yCorrection, 0.0f, 1.0f,   1,1,1,1,   0,0,1,
+         s, -h + yCorrection, 0.0f, 1.0f,   1,1,1,1,   0,0,1,
+         s,  h + yCorrection, 0.0f, 1.0f,   1,1,1,1,   0,0,1,
+        -s,  h + yCorrection, 0.0f, 1.0f,   1,1,1,1,   0,0,1,
+    };
+
+    std::vector<GLuint> indices = {
+        0, 1, 2,
+        2, 3, 0
+    };
+
+    // --- BOILERPLATE STANDARD (Nu schimba nimic mai jos) ---
+    glGenVertexArrays(1, &VaoId); glBindVertexArray(VaoId);
+    glGenBuffers(1, &VboId); glBindBuffer(GL_ARRAY_BUFFER, VboId);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+    glGenBuffers(1, &EboId); glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EboId);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+    int stride = 11 * sizeof(GLfloat);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, stride, (void*)0); glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void*)(4 * sizeof(GLfloat))); glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat))); glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+}
+
+// Asigura-te ca Render-ul clasei Crosshair trimite identitatea la modelLocation!
+void Crosshair::Render(GLuint modelLocation) {
+    glBindVertexArray(VaoId);
+    // Trimitem Matricea Identitate (1.0) -> Nu mutam patratul, il lasam la 0,0 (Centru)
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Crosshair::Cleanup() {
+    if (VboId) glDeleteBuffers(1, &VboId);
+    if (EboId) glDeleteBuffers(1, &EboId);
+    if (VaoId) glDeleteVertexArrays(1, &VaoId);
+}

@@ -39,7 +39,8 @@ fogColorLoc,
 fogStartLoc,
 fogEndLoc,
 modelLocation,
-matrUmbraLocation;
+matrUmbraLocation,
+overrideColorLoc;
 
 // --- CAMERA SETTINGS ---
 // Pozitionam camera la inaltime (Y=10) si putin in spate (Z=50)
@@ -69,10 +70,12 @@ glm::mat4 matrUmbra;
 // Matrice
 glm::mat4 view, projection;
 
-//copac
+//instantare obiectele noastre
 Tree tree;
 Skybox sky;
 Cloud cloud;
+Sun sun;
+Crosshair crosshair;
 
 // --- DEFINITIE NORI ---
 struct CloudData {
@@ -266,9 +269,12 @@ void Initialize(void)
     CreateShaders();
     CreateVBO();
 
-    tree.Init(); // initializam o singura data copacul in GPU
+    //initializam o singura data obiectele noastre si trimitem datele la GPU
+    tree.Init();
     sky.Init();
     cloud.Init();
+    sun.Init();
+    crosshair.Init();
 
     GenerateClouds();
 
@@ -286,6 +292,8 @@ void Initialize(void)
     fogColorLoc = glGetUniformLocation(ProgramId, "fogColor");
     fogStartLoc = glGetUniformLocation(ProgramId, "fogStart");
     fogEndLoc = glGetUniformLocation(ProgramId, "fogEnd");
+
+    overrideColorLoc = glGetUniformLocation(ProgramId, "overrideColor");
 
     // Ascundem cursorul si il punem in centru
     glutSetCursor(GLUT_CURSOR_NONE);
@@ -338,6 +346,11 @@ void RenderFunction(void)
     glDisable(GL_DEPTH_TEST);
     sky.Render(modelLocation, myCamera.Position);
     glEnable(GL_DEPTH_TEST);  // Il pornim inapoi pentru restul lumii
+
+    // SOARELE
+    // Il desenam exact unde este sursa de lumina (lightPos)
+    // Il facem mare (scale 20.0f) ca sa para impunator
+    sun.Render(modelLocation, lightPos, glm::vec3(20.0f));
 
     //NORI
     // Bucla care deseneaza toti norii generati
@@ -461,6 +474,40 @@ void RenderFunction(void)
 
     glDisable(GL_POLYGON_OFFSET_FILL); // Oprim trucul
     glDisable(GL_BLEND); // oprimi si transaprentea
+
+    // =========================================================
+    //                DESENARE CROSSHAIR (UI FIX)
+    // =========================================================
+
+    // 1. Oprim Depth Test (Sa fie desenat PESTE orice altceva)
+    glDisable(GL_DEPTH_TEST);
+
+    // 2. Setam culoarea ALBA (folosind Override-ul de la Soare/Glow daca il ai implementat)
+    // Daca nu ai implementat inca partea cu overrideColor, poti sari peste liniile astea 
+    // sau folosesti codCol=0 si te bazezi pe culoarea din vertices (care e alba).
+
+    // Varianta sigura (daca ai implementat variabilele globale pt override):
+    // glUniform1i(codColLocation, 3); 
+    // glUniform4f(overrideColorLoc, 1.0f, 1.0f, 1.0f, 1.0f); 
+
+    // Varianta simpla (Daca NU ai facut modificarile de la promptul cu soarele):
+    glUniform1i(codColLocation, 2); // Unlit (ia culoarea din buffer, care e alba)
+
+
+    // 3. RESETAM MATRICILE (CRITIC!)
+    // Anulam perspectiva si rotatia camerei. 
+    glm::mat4 identity = glm::mat4(1.0f);
+
+    // Trimitem Identity la Proiectie si la View
+    glUniformMatrix4fv(projLocation, 1, GL_FALSE, &identity[0][0]);
+    glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &identity[0][0]);
+    // Model e trimis deja in Crosshair::Render ca Identity
+
+    // 4. Desenam
+    crosshair.Render(modelLocation);
+
+    // 5. Curatenie (Reactivam Depth pentru urmatorul cadru)
+    glEnable(GL_DEPTH_TEST);
 
     glutSwapBuffers();
     glFlush();
