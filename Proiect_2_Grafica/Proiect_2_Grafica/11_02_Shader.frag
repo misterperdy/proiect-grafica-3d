@@ -15,15 +15,22 @@ uniform float fogEnd;
 
 void main(void)
 {
-    // 1. Calculam distanta de la Camera la Pixelul curent
+    if (codCol == 2)
+    {
+        out_Color = ex_Color; 
+    }
+    else 
+    {
+    // Calculam distanta de la Camera la Pixelul curent
     float dist = distance(ex_ViewPos, ex_FragPos);
 
-    // 2. Calculam factorul de ceata Liniar
+    // Calculam factorul de ceata Liniar
     float f = (fogEnd - dist) / (fogEnd - fogStart);
     f = clamp(f, 0.0, 1.0);
 
-    // 3. Amestecam Culoarea primita (ex_Color) cu Culoarea Cetii
+    // Amestecam Culoarea primita (ex_Color) cu Culoarea Cetii
     vec3 finalRGB = mix(fogColor, ex_Color.rgb, f);
 
     out_Color = vec4(finalRGB, ex_Color.a);
+    }
 }

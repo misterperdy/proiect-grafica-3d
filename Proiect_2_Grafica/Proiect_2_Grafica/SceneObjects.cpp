@@ -119,3 +119,213 @@ void Tree::Cleanup() {
     glDeleteBuffers(1, &EboId);
     glDeleteVertexArrays(1, &VaoId);
 }
+// ==========================================================
+//                      SKYBOX CLASS
+// ==========================================================
+
+Skybox::Skybox() {
+    VaoId = 0; VboId = 0; EboId = 0;
+}
+
+Skybox::~Skybox() {
+    Cleanup();
+}
+
+void Skybox::Init() {
+    // Un cub mare. Dimensiunea nu conteaza foarte mult daca il desenam fara Depth Test,
+    // dar e bine sa fie maricel.
+    float s = 500.0f;
+
+    // Culori pentru Gradient (Windows XP Bliss vibe)
+    // Sus: Albastru intens de cer
+    float rT = 0.0f, gT = 0.4f, bT = 0.8f;
+    // Jos: Alb-Bleu deschis (se va uni cu ceata)
+    float rB = 0.5f, gB = 0.8f, bB = 1.0f;
+
+    // Definim varfurile manual
+    std::vector<GLfloat> vertices = {
+        // Pozitie (X,Y,Z,W)            // Culoare (R,G,B,A)      // Normala (0,0,0 - nu folosim lumina pe cer)
+
+        // Spate (Z = -s)
+        -s, -s, -s, 1.0f,   rB, gB, bB, 1.0f,  0,0,0, // Jos-Stanga
+         s, -s, -s, 1.0f,   rB, gB, bB, 1.0f,  0,0,0, // Jos-Dreapta
+         s,  s, -s, 1.0f,   rT, gT, bT, 1.0f,  0,0,0, // Sus-Dreapta
+        -s,  s, -s, 1.0f,   rT, gT, bT, 1.0f,  0,0,0, // Sus-Stanga
+
+        // Fata (Z = s)
+        -s, -s,  s, 1.0f,   rB, gB, bB, 1.0f,  0,0,0,
+         s, -s,  s, 1.0f,   rB, gB, bB, 1.0f,  0,0,0,
+         s,  s,  s, 1.0f,   rT, gT, bT, 1.0f,  0,0,0,
+        -s,  s,  s, 1.0f,   rT, gT, bT, 1.0f,  0,0,0,
+    };
+
+    // Indici - INVERSATI fata de un cub normal, pentru ca noi stam INAUNTRU
+    // (Desenam fetele interioare)
+    std::vector<GLuint> indices = {
+        0, 3, 1, 1, 3, 2, // Spate
+        4, 5, 7, 5, 6, 7, // Fata
+        0, 1, 4, 1, 5, 4, // Jos
+        2, 3, 6, 3, 7, 6, // Sus
+        0, 4, 3, 3, 4, 7, // Stanga
+        1, 2, 5, 2, 6, 5  // Dreapta
+    };
+
+    // Generare Buffere
+    glGenVertexArrays(1, &VaoId);
+    glBindVertexArray(VaoId);
+
+    glGenBuffers(1, &VboId);
+    glBindBuffer(GL_ARRAY_BUFFER, VboId);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &EboId);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EboId);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+    // Layout atribute (trebuie sa fie identic cu cel din Tree/Ground: pos, col, norm)
+    int stride = 11 * sizeof(GLfloat);
+    // 0: Pos
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(0);
+    // 1: Color
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void*)(4 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    // 2: Normal
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
+}
+
+void Skybox::Render(GLuint modelLocation, glm::vec3 playerPos) {
+    glBindVertexArray(VaoId);
+
+    // Skybox-ul se misca odata cu jucatorul
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, playerPos);
+
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &model[0][0]);
+
+    // Desenam cubul (36 indici)
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+}
+
+void Skybox::Cleanup() {
+    // Codul complet de stergere
+    if (VboId) glDeleteBuffers(1, &VboId);
+    if (EboId) glDeleteBuffers(1, &EboId);
+    if (VaoId) glDeleteVertexArrays(1, &VaoId);
+}
+
+
+// ==========================================================
+//                       CLOUD CLASS
+// ==========================================================
+
+Cloud::Cloud() {
+    VaoId = 0; VboId = 0; EboId = 0;
+    indexCount = 0;
+}
+
+Cloud::~Cloud() {
+    Cleanup();
+}
+
+void Cloud::Init() {
+    // Construim un cub standard (1x1x1) centrat in origine.
+    // Il vom scala in Render() ca sa arate plat si lung (ca un nor Unturned).
+    // Culoarea va fi ALB pur (1,1,1).
+
+    float s = 0.5f; // Jumatate de latura (ca sa aiba latura 1.0 total)
+
+    std::vector<GLfloat> vertices = {
+        // X, Y, Z, W      R, G, B, A      NX, NY, NZ
+
+        // Fata
+        -s, -s,  s, 1.0f,  1,1,1,1,  0,0,1,
+         s, -s,  s, 1.0f,  1,1,1,1,  0,0,1,
+         s,  s,  s, 1.0f,  1,1,1,1,  0,0,1,
+        -s,  s,  s, 1.0f,  1,1,1,1,  0,0,1,
+
+        // Spate
+        -s, -s, -s, 1.0f,  1,1,1,1,  0,0,-1,
+         s, -s, -s, 1.0f,  1,1,1,1,  0,0,-1,
+         s,  s, -s, 1.0f,  1,1,1,1,  0,0,-1,
+        -s,  s, -s, 1.0f,  1,1,1,1,  0,0,-1,
+
+        // Stanga
+        -s, -s, -s, 1.0f,  1,1,1,1,  -1,0,0,
+        -s, -s,  s, 1.0f,  1,1,1,1,  -1,0,0,
+        -s,  s,  s, 1.0f,  1,1,1,1,  -1,0,0,
+        -s,  s, -s, 1.0f,  1,1,1,1,  -1,0,0,
+
+        // Dreapta
+         s, -s, -s, 1.0f,  1,1,1,1,  1,0,0,
+         s, -s,  s, 1.0f,  1,1,1,1,  1,0,0,
+         s,  s,  s, 1.0f,  1,1,1,1,  1,0,0,
+         s,  s, -s, 1.0f,  1,1,1,1,  1,0,0,
+
+         // Sus
+         -s,  s, -s, 1.0f,  1,1,1,1,  0,1,0,
+          s,  s, -s, 1.0f,  1,1,1,1,  0,1,0,
+          s,  s,  s, 1.0f,  1,1,1,1,  0,1,0,
+         -s,  s,  s, 1.0f,  1,1,1,1,  0,1,0,
+
+         // Jos
+         -s, -s, -s, 1.0f,  1,1,1,1,  0,-1,0,
+          s, -s, -s, 1.0f,  1,1,1,1,  0,-1,0,
+          s, -s,  s, 1.0f,  1,1,1,1,  0,-1,0,
+         -s, -s,  s, 1.0f,  1,1,1,1,  0,-1,0,
+    };
+
+    std::vector<GLuint> indices = {
+        0, 1, 2, 2, 3, 0,       // Fata
+        4, 5, 6, 6, 7, 4,       // Spate
+        8, 9, 10, 10, 11, 8,    // Stanga
+        12, 13, 14, 14, 15, 12, // Dreapta
+        16, 17, 18, 18, 19, 16, // Sus
+        20, 21, 22, 22, 23, 20  // Jos
+    };
+
+    indexCount = indices.size();
+
+    // Buffer Setup
+    glGenVertexArrays(1, &VaoId);
+    glBindVertexArray(VaoId);
+
+    glGenBuffers(1, &VboId);
+    glBindBuffer(GL_ARRAY_BUFFER, VboId);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &EboId);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EboId);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+    int stride = 11 * sizeof(GLfloat);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, stride, (void*)0); glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void*)(4 * sizeof(GLfloat))); glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat))); glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
+}
+
+void Cloud::Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale) {
+    glBindVertexArray(VaoId);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, position);
+    model = glm::scale(model, scale);
+
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &model[0][0]);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+}
+
+void Cloud::Cleanup() {
+    if (VboId) glDeleteBuffers(1, &VboId);
+    if (EboId) glDeleteBuffers(1, &EboId);
+    if (VaoId) glDeleteVertexArrays(1, &VaoId);
+}

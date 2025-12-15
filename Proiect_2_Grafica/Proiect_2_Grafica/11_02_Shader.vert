@@ -108,5 +108,18 @@ void main(void)
         // Culoarea umbrei e neagra
         ex_Color = vec4(0.1, 0.1, 0.15, 0.5);
     }
+    // --- SKYBOX & CLOUDS (codCol == 2) ---
+    if ( codCol == 2 )
+    {
+        // Calculam pozitia standard
+        gl_Position = projection * view * model * in_Position;
+        
+        // Transmitem culoarea direct (fara lumina, fara umbre)
+        ex_Color = in_Color;
+        
+        // Trimitem restul variabilelor (chiar daca nu le folosim la ceata aici, shaderul le cere)
+        ex_FragPos = vec3(model * in_Position);
+        ex_ViewPos = viewPos;
+    }
    } 
  

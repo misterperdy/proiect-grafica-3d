@@ -62,7 +62,7 @@ bool keys[1024];
 // Iluminare & Ceata
 // Lumina e sus pe Y (200.0f)
 glm::vec3 lightPos = glm::vec3(100.0f, 200.0f, 100.0f);
-glm::vec3 fogColor = glm::vec3(0.5f, 0.8f, 1.0f);
+glm::vec3 fogColor = glm::vec3(0.25f, 0.6f, 0.9f);
 
 glm::mat4 matrUmbra;
 
@@ -71,6 +71,8 @@ glm::mat4 view, projection;
 
 //copac
 Tree tree;
+Skybox sky;
+Cloud cloud;
 
 // --- FUNCTII CALLBACK INPUT ---
 
@@ -218,6 +220,8 @@ void Initialize(void)
     CreateVBO();
 
     tree.Init(); // initializam o singura data copacul in GPU
+    sky.Init();
+    cloud.Init();
 
     // Locatii Uniforme
     viewLocation = glGetUniformLocation(ProgramId, "view");
@@ -233,8 +237,6 @@ void Initialize(void)
     fogColorLoc = glGetUniformLocation(ProgramId, "fogColor");
     fogStartLoc = glGetUniformLocation(ProgramId, "fogStart");
     fogEndLoc = glGetUniformLocation(ProgramId, "fogEnd");
-
-    // matrUmbraLocation = ... (Momentan nu avem umbre, o lasam neinitializata sau comentata)
 
     // Ascundem cursorul si il punem in centru
     glutSetCursor(GLUT_CURSOR_NONE);
@@ -258,7 +260,7 @@ void RenderFunction(void)
     view = myCamera.GetViewMatrix();
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 
-    projection = glm::infinitePerspective(myCamera.Zoom, width / height, znear);
+    projection = glm::perspective(glm::radians(myCamera.Zoom), width / height, 0.1f, 2000.0f);
     glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
 
     // 4. Setare Iluminare si Ceata
@@ -275,7 +277,33 @@ void RenderFunction(void)
     glUniform1f(fogStartLoc, startDist);
     glUniform1f(fogEndLoc, endDist);
 
-    // --- CALCUL MATRICE UMBRA (Corrected for GLM Column-Major) ---
+    // =========================================================
+    //                DESENARE CER & NORI
+    // =========================================================
+
+    // Setam modul 2: Fara Lumina, Fara Umbra (Culori pure)
+    glUniform1i(codColLocation, 2);
+
+    // A. SKYBOX
+    // Oprim testul de adancime ca cerul sa fie desenat "in spatele" tuturor
+    glDisable(GL_DEPTH_TEST);
+    sky.Render(modelLocation, myCamera.Position);
+    glEnable(GL_DEPTH_TEST);  // Il pornim inapoi pentru restul lumii
+
+    // B. NORI (Unii mai mari, unii mai mici)
+    // Nor 1 - Mare si Sus
+    cloud.Render(modelLocation, glm::vec3(0.0f, 100.0f, -150.0f), glm::vec3(30.0f, 8.0f, 15.0f));
+
+    // Nor 2 - In stanga
+    cloud.Render(modelLocation, glm::vec3(-120.0f, 80.0f, -50.0f), glm::vec3(20.0f, 6.0f, 10.0f));
+
+    // Nor 3 - In dreapta spate
+    cloud.Render(modelLocation, glm::vec3(150.0f, 120.0f, 50.0f), glm::vec3(25.0f, 7.0f, 12.0f));
+
+    // Nor 4 - Mai aproape
+    cloud.Render(modelLocation, glm::vec3(50.0f, 150.0f, 0.0f), glm::vec3(15.0f, 4.0f, 8.0f));
+
+    // --- CALCUL MATRICE UMBRA---
     float ly = lightPos.y;
     float lx = lightPos.x;
     float lz = lightPos.z;
@@ -342,30 +370,31 @@ void RenderFunction(void)
     }
 
     // Desenam UMBRELE tuturor copacilor
-    glUniform1i(codColLocation, 1); // Spunem shaderului: "Fa-i negri si turtiti"
+    glUniform1i(codColLocation, 1); // Setam Shaderul pe modul UMBRA
 
-    // ACTIVAM TRANSPARENTA (Alpha Blending)
+    // STENCIL BUFFER
+    // Ideea: Creem o masca. Unde am desenat deja o umbra, marcam cu 1.
+    // Nu mai desenam a doua oara acolo.
+    glEnable(GL_STENCIL_TEST);
+
+    // Curatam stencilul (totul devine 0)
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    // Regula: Toti pixelii trec testul initial, dar marcam pixelul cu '1' in stencil buffer
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+    // BLENDING (Rezolva Transparenta)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // --- STENCIL SETUP (Ca sa nu se suprapuna umbrele) ---
-    glEnable(GL_STENCIL_TEST);
-    glStencilFunc(GL_ALWAYS, 1, 0xFF); // Toti pixelii trec testul
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Daca desenam umbra, punem '1' in stencil
-    glStencilMask(0xFF); // Activam scrierea in stencil
-    glClear(GL_STENCIL_BUFFER_BIT); // Curatam stencilul vechi
-
-    // Setam regula: Desenam doar unde Stencilul este 0 (adica unde nu e deja umbra)
-    glStencilFunc(GL_EQUAL, 0, 0xFF);
-    // ----------------------------------------------------
-
-    // TRUC: Pentru a evita "Z-Fighting" (palpaire intre umbra si sol), 
-    // activam Polygon Offset ca sa ridicam umbra un milimetru de pe sol.
+    // 3. POLYGON OFFSET (Rezolva "Jitter-ul/Palpairea")
+    // Trage geometria spre camera suficient cat sa nu se bata cu solul
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-1.0f, -1.0f);
+    glPolygonOffset(-1.0f, -1.0f); // Valori negative = trage spre noi
 
     for (auto& treePos : padure) {
-        // Trimitem ACELEASI pozitii! Shaderul va aplica matrUmbra peste ele.
+        // Trimitem ACELEASI pozitii,shaderul va aplica matrUmbra peste ele.
         tree.Render(modelLocation, treePos.pos, treePos.scale);
     }
 
