@@ -36,6 +36,7 @@
 #include "glm/gtc/quaternion.hpp" 
 #include "glm/gtx/quaternion.hpp"
 
+#include "Camera.h"
 
 using namespace std;
 float PI = 3.141592;
@@ -59,13 +60,27 @@ GLuint
 	fogDensityLoc,
 	modelLocation;
 
-// elemente pentru matricea de vizualizare si matricea de proiectie
-float Obsx, Obsy, Obsz;
-float Refx = 0.0f, Refy = 0.0f, Refz = 100.0f;
-float Vx = 0.0, Vy = 0.0, Vz = 1.0;
-float alpha = 0.0f, beta = 0.0f, dist = 600.0f;
-float incr_alpha1 = 0.01f, incr_alpha2 = 0.01f;
-float width = 800, height = 600, znear = 0.1, fov = 45;
+//declarare camera
+Camera myCamera(glm::vec3(0.0f, 20.0f, 100.0f));
+
+// Dimensiunile ferestrei (trebuie sa coincida cu glutInitWindowSize)
+float width = 1200;
+float height = 900;
+
+// Elemente pentru proiectie
+float znear = 0.1f; // Cat de aproape vedem
+float fov = 45.0f;  // Field of View (cat de larg vedem)
+
+// Timp pentru miscare lina
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+// Mouse
+float lastX = 400, lastY = 300; // Centrul ecranului
+bool firstMouse = true;
+
+// Vector de taste apasate (pentru miscare continua WASD)
+bool keys[1024];
 
 bool keyF_down = false;
 bool keyG_down = false;
@@ -80,13 +95,14 @@ glm::mat4 view, projection, matrUmbra;
 
 void processNormalKeys(unsigned char key, int x, int y)
 {
+	// Actualizam vectorul de taste
+	if (key >= 0 && key < 1024)
+	{
+		keys[key] = true;
+	}
+
+	// Tastele pt rotatia obiectului pt demonstratie
 	switch (key) {
-	case '-':
-		dist -= 5.0;
-		break;
-	case '=':
-		dist += 5.0;
-		break;
 	case 'f':
 	case 'F':
 		keyF_down = true;
@@ -100,9 +116,14 @@ void processNormalKeys(unsigned char key, int x, int y)
 		exit(0);
 }
 
-//pt cand ridicam degetul de pe tasta
 void processNormalKeysUp(unsigned char key, int x, int y)
 {
+	// Actualizam vectorul de taste
+	if (key >= 0 && key < 1024)
+	{
+		keys[key] = false;
+	}
+
 	switch (key) {
 	case 'f':
 	case 'F':
@@ -115,40 +136,38 @@ void processNormalKeysUp(unsigned char key, int x, int y)
 	}
 }
 
-void processSpecialKeys(int key, int xx, int yy)
+//callback si pt mouse
+void processMouseMovement(int x, int y)
 {
-	switch (key)
+	if (firstMouse)
 	{
-	case GLUT_KEY_LEFT:
-		beta -= 0.01f;
-		break;
-	case GLUT_KEY_RIGHT:
-		beta += 0.01f;
-		break;
-	case GLUT_KEY_UP:
-		alpha += incr_alpha1;
-		if (abs(alpha - PI / 2) < 0.05)
-		{
-			incr_alpha1 = 0.f;
-		}
-		else
-		{
-			incr_alpha1 = 0.01f;
-		}
-		break;
-	case GLUT_KEY_DOWN:
-		alpha -= incr_alpha2;
-		if (abs(alpha + PI / 2) < 0.05)
-		{
-			incr_alpha2 = 0.f;
-		}
-		else
-		{
-			incr_alpha2 = 0.01f;
-		}
-		break;
+		lastX = x;
+		lastY = y;
+		firstMouse = false;
 	}
+
+	float xoffset = x - lastX;
+	float yoffset = lastY - y; // Inversat deoarece coordonatele Y merg de sus in jos
+
+	lastX = x;
+	lastY = y;
+
+	myCamera.ProcessMouseMovement(xoffset, yoffset);
 }
+
+void DoMovement()
+{
+	// Camera controls
+	if (keys['w'] || keys['W'])
+		myCamera.ProcessKeyboard(FORWARD, deltaTime);
+	if (keys['s'] || keys['S'])
+		myCamera.ProcessKeyboard(BACKWARD, deltaTime);
+	if (keys['a'] || keys['A'])
+		myCamera.ProcessKeyboard(LEFT, deltaTime);
+	if (keys['d'] || keys['D'])
+		myCamera.ProcessKeyboard(RIGHT, deltaTime);
+}
+
 void CreateVBO(void) // sunt folosite doua buffere
 {
 	// varfurile pentru cub si "ground" 
@@ -274,25 +293,30 @@ void Initialize(void)
 }
 void RenderFunction(void)
 {
+	// Calcul Timp
+	float currentFrame = glutGet(GLUT_ELAPSED_TIME) * 0.001f;
+	deltaTime = currentFrame - lastFrame;
+	lastFrame = currentFrame;
+
+	// Proceseaza miscarea (WASD)
+	DoMovement();
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	// reperul de vizualizare + proiectie
-	Obsx = Refx + dist * cos(alpha) * cos(beta);
-	Obsy = Refy + dist * cos(alpha) * sin(beta);
-	Obsz = Refz + dist * sin(alpha);
-	glm::vec3 Obs = glm::vec3(Obsx, Obsy, Obsz);
-	glm::vec3 PctRef = glm::vec3(Refx, Refy, Refz);
-	glm::vec3 Vert = glm::vec3(Vx, Vy, Vz);
-	view = glm::lookAt(Obs, PctRef, Vert);
+	// --- CAMERA NOUA ---
+	// In loc sa calculam Obsx, Obsy manual, cerem matricea de la obiectul Camera
+	view = myCamera.GetViewMatrix();
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
-	projection = glm::infinitePerspective(fov, GLfloat(width) / GLfloat(height), znear);
+
+	// projection = glm::infinitePerspective(fov, GLfloat(width) / GLfloat(height), znear); // cu zoom-ul declarat de noi aici (fov)
+	projection = glm::infinitePerspective(myCamera.Zoom, GLfloat(width) / GLfloat(height), znear); //folosim zoom-ul camerei
 	glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
 
 	// Variabile uniforme pentru iluminare
 	glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
 	glUniform3f(lightPosLoc, xL, yL, zL);
-	glUniform3f(viewPosLoc, Obsx, Obsy, Obsz);
+	glUniform3f(viewPosLoc, myCamera.Position.x, myCamera.Position.y, myCamera.Position.z);
 
 	glUniform3f(fogColorLoc, 0.7f, 0.7f, 0.7f);
 	glUniform1f(fogDensityLoc, 0.0015f); // culoarea si densitatea cetii
@@ -385,14 +409,15 @@ int main(int argc, char* argv[])
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
 	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(1200, 900);
-	glutCreateWindow("Amestecare in context 3D cu efect de ceata");
+	glutCreateWindow("Proiect 3D OpenGL");
 	glewInit();
 	Initialize();
+	glutSetCursor(GLUT_CURSOR_NONE); // ascundem cursorul si il blocam in fereastra
 	glutIdleFunc(RenderFunction);
 	glutDisplayFunc(RenderFunction);
 	glutKeyboardFunc(processNormalKeys);
 	glutKeyboardUpFunc(processNormalKeysUp);
-	glutSpecialFunc(processSpecialKeys);
+	glutPassiveMotionFunc(processMouseMovement);
 	glutCloseFunc(Cleanup);
 	glutMainLoop();
 }
