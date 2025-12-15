@@ -46,7 +46,7 @@ overrideColorLoc;
 // Pozitionam camera la inaltime (Y=10) si putin in spate (Z=50)
 Camera myCamera(glm::vec3(0.0f, 10.0f, 50.0f));
 
-float width = 1200, height = 900;
+float width = 1200, height = 675;
 float znear = 0.1f;
 
 // Timing (pentru miscare lina)
