@@ -34,11 +34,10 @@ lightPosLoc,
 viewPosLoc,
 codColLocation,
 fogColorLoc,
-fogDensityLoc,
+fogStartLoc,
+fogEndLoc,
 modelLocation,
 matrUmbraLocation;
-
-glm::mat4 matrUmbra;
 
 // --- CAMERA SETTINGS ---
 // Pozitionam camera la inaltime (Y=10) si putin in spate (Z=50)
@@ -59,9 +58,11 @@ bool firstMouse = true;
 bool keys[1024];
 
 // Iluminare & Ceata
-// Atentie: Lumina e acum sus pe Y (200.0f)
+// Lumina e sus pe Y (200.0f)
 glm::vec3 lightPos = glm::vec3(100.0f, 200.0f, 100.0f);
-glm::vec3 fogColor = glm::vec3(0.5f, 0.7f, 1.0f); // Un albastru deschis (cer de zi)
+glm::vec3 fogColor = glm::vec3(0.5f, 0.8f, 1.0f);
+
+glm::mat4 matrUmbra;
 
 // Matrice
 glm::mat4 view, projection;
@@ -119,22 +120,35 @@ void DoMovement()
     if (keys['s'] || keys['S']) myCamera.ProcessKeyboard(BACKWARD, deltaTime);
     if (keys['a'] || keys['A']) myCamera.ProcessKeyboard(LEFT, deltaTime);
     if (keys['d'] || keys['D']) myCamera.ProcessKeyboard(RIGHT, deltaTime);
+
+    // aplicam boundaries
+    float borderLimit = 100.0f; // Zona jucabila (+/- 100)
+
+    // Verificam X
+    if (myCamera.Position.x > borderLimit)
+        myCamera.Position.x = borderLimit;
+    if (myCamera.Position.x < -borderLimit)
+        myCamera.Position.x = -borderLimit;
+
+    // Verificam Z
+    if (myCamera.Position.z > borderLimit)
+        myCamera.Position.z = borderLimit;
+    if (myCamera.Position.z < -borderLimit)
+        myCamera.Position.z = -borderLimit;
 }
 
 // --- SETUP GEOMETRIE (DOAR SOLUL) ---
 void CreateVBO(void)
 {
-    // Definim un plan mare pe XZ (Y=0)
-    // Coordonate (X, Y, Z, W) | Culoare (R, G, B, A) | Normala (X, Y, Z) - Sus pe Y
+    // Facem solul imens ca sa treaca dincolo de ceata
+    float groundSize = 1000.0f;
+
     GLfloat Vertices[] = {
-        // Stanga-Spate
-        -100.0f, 0.0f, -100.0f, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
-        // Dreapta-Spate
-         100.0f, 0.0f, -100.0f, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
-         // Dreapta-Fata
-          100.0f, 0.0f,  100.0f, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
-          // Stanga-Fata
-          -100.0f, 0.0f,  100.0f, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
+        // X, Y, Z, W                           // Culoare verde          // Normala pt normal mappingg
+        -groundSize, 0.0f, -groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
+         groundSize, 0.0f, -groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
+         groundSize, 0.0f,  groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
+        -groundSize, 0.0f,  groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
     };
 
     // Indici (2 triunghiuri ce formeaza patratul)
@@ -203,7 +217,8 @@ void Initialize(void)
 
     codColLocation = glGetUniformLocation(ProgramId, "codCol");
     fogColorLoc = glGetUniformLocation(ProgramId, "fogColor");
-    fogDensityLoc = glGetUniformLocation(ProgramId, "fogDensity");
+    fogStartLoc = glGetUniformLocation(ProgramId, "fogStart");
+    fogEndLoc = glGetUniformLocation(ProgramId, "fogEnd");
 
     // matrUmbraLocation = ... (Momentan nu avem umbre, o lasam neinitializata sau comentata)
 
@@ -237,8 +252,14 @@ void RenderFunction(void)
     glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
     glUniform3f(viewPosLoc, myCamera.Position.x, myCamera.Position.y, myCamera.Position.z);
 
+    //ceata
     glUniform3f(fogColorLoc, fogColor.r, fogColor.g, fogColor.b);
-    glUniform1f(fogDensityLoc, 0.005f); // Ceata densa la orizont
+
+    float startDist = 150.0f;
+    float endDist = 250.0f;
+
+    glUniform1f(fogStartLoc, startDist);
+    glUniform1f(fogEndLoc, endDist);
 
     // --- CALCUL MATRICE UMBRA (Pentru Y-Up) ---
     float D = -lightPos.y; // D = -Inaltimea Luminii (pentru planul Y=0)

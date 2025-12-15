@@ -14,6 +14,8 @@ layout(location=2) in vec3 in_Normal;
 
 out vec4 gl_Position; 
 out vec4 ex_Color;
+out vec3 ex_FragPos;   // Trimitem pozitia pixelului la Fragment Shader
+out vec3 ex_ViewPos;   // Trimitem pozitia camerei la Fragment Shader
 
 uniform mat4 matrUmbra;
 uniform mat4 view;
@@ -26,7 +28,9 @@ uniform vec3 lightColor;
 uniform int codCol;
 
 // Variabile uniforme pentru ceata
-uniform float fogDensity; // Densitate
+//uniform float fogDensity; // Densitate
+uniform float fogStart;
+uniform float fogEnd;
 uniform vec3 fogColor;    // Culoare
 
 void main(void)
@@ -39,6 +43,9 @@ void main(void)
         // 2. Recalculam pozitia si normala in functie de rotatie
         vec3 FragPos = vec3(model * in_Position); 
         vec3 Normal = mat3(model) * in_Normal; 
+
+        ex_FragPos = FragPos;
+        ex_ViewPos = viewPos;
 
         vec3 inLightPos = lightPos;
         vec3 inViewPos = viewPos;
@@ -63,13 +70,14 @@ void main(void)
 
         vec3 lightingColor = (ambient + diffuse) * baseColorRGB + specular; 
 
-        // --- CEATA ---
-        float dist = distance(inViewPos, FragPos);
-        float f = exp(-fogDensity * dist);
-        f = clamp(f, 0.0, 1.0);
+        // --- CEATA --- mutata in frag shader
+        //float dist = distance(inViewPos, FragPos);
+        //float f = (fogEnd - dist) / (fogEnd - fogStart);
+        //f = clamp(f, 0.0, 1.0);
 
-        vec3 finalRGB = mix(fogColor, lightingColor, f);
-        ex_Color = vec4(finalRGB, baseAlpha);
+        //vec3 finalRGB = mix(fogColor, lightingColor, f);
+        //ex_Color = vec4(finalRGB, baseAlpha);
+        ex_Color = vec4(lightingColor, baseAlpha);
     }
 
     // UMBRA
@@ -83,15 +91,21 @@ void main(void)
         //calculam pozitia pe ecran
         gl_Position = projection * view * shadowWorldPos;
 
-        // Calculam CEATA pentru umbra (folosind pozitia umbrei)
-        float dist = distance(viewPos, vec3(shadowWorldPos));
-        float f = exp(-fogDensity * dist);
-        f = clamp(f, 0.0, 1.0);
+        // Calculam CEATA pentru umbra (folosind pozitia umbrei) MUTATA IN FRAG SHDAER
+        //float dist = distance(viewPos, vec3(shadowWorldPos));
+        //float f = (fogEnd - dist) / (fogEnd - fogStart);
+        //f = clamp(f, 0.0, 1.0);
 
-        vec3 shadowBaseColor = vec3(0.0, 0.0, 0.0);
-        vec3 finalShadowColor = mix(fogColor, shadowBaseColor, f);
+        //vec3 shadowBaseColor = vec3(0.0, 0.0, 0.0);
+        //vec3 finalShadowColor = mix(fogColor, shadowBaseColor, f);
 
-        ex_Color = vec4(finalShadowColor, 1.0);
+        //ex_Color = vec4(finalShadowColor, 1.0);
+
+        ex_FragPos = vec3(shadowWorldPos); 
+        ex_ViewPos = viewPos;
+
+        // Culoarea umbrei e neagra
+        ex_Color = vec4(0.0, 0.0, 0.0, 1.0);
     }
    } 
  
