@@ -105,6 +105,9 @@
     <ClCompile Include="include\glm\detail\glm.cpp">
       <Filter>Header Files\template-built-ins\glm\detail</Filter>
     </ClCompile>
+    <ClCompile Include="SceneObjects.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\SOIL.h">
@@ -999,6 +1002,9 @@
       <Filter>Header Files\template-built-ins\glm\simd</Filter>
     </ClInclude>
     <ClInclude Include="Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneObjects.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -68,7 +68,7 @@ public:
         if (direction == RIGHT)
             Position += Right * velocity;
 
-        Position.y = 20.0f; // stil FPS clasic - comenteaza pt freecam/noclip
+        Position.y = 10.0f; // stil FPS clasic - comenteaza pt freecam/noclip
     }
 
     // Proceseaza input de la mouse

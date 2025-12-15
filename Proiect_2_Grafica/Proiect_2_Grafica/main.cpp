@@ -8,6 +8,7 @@
 #include <math.h>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
+#include <vector>
 
 #include "loadShaders.h"
 #include "glm/glm.hpp"
@@ -16,6 +17,7 @@
 
 // INCLUDEM CAMERA (Asigura-te ca ai creat Camera.h)
 #include "Camera.h"
+#include "SceneObjects.h"
 
 using namespace std;
 
@@ -67,6 +69,9 @@ glm::mat4 matrUmbra;
 // Matrice
 glm::mat4 view, projection;
 
+//copac
+Tree tree;
+
 // --- FUNCTII CALLBACK INPUT ---
 
 // Apasare tasta
@@ -105,6 +110,13 @@ void processMouseMovement(int x, int y)
     // Calculam cat s-a miscat
     float xoffset = (float)(x - centerX);
     float yoffset = (float)(centerY - y);
+
+    // --- DEADZONE FIX ---
+    // Ignoram miscarile foarte mici (tremuratul mainii sau erori de driver)
+    float deadzone = 2.0f; // Poti experimenta cu 1.0f sau 3.0f
+
+    if (abs(xoffset) < deadzone) xoffset = 0.0f;
+    if (abs(yoffset) < deadzone) yoffset = 0.0f;
 
     // Aplicam miscarea camerei
     myCamera.ProcessMouseMovement(xoffset, yoffset);
@@ -205,6 +217,8 @@ void Initialize(void)
     CreateShaders();
     CreateVBO();
 
+    tree.Init(); // initializam o singura data copacul in GPU
+
     // Locatii Uniforme
     viewLocation = glGetUniformLocation(ProgramId, "view");
     projLocation = glGetUniformLocation(ProgramId, "projection");
@@ -261,29 +275,42 @@ void RenderFunction(void)
     glUniform1f(fogStartLoc, startDist);
     glUniform1f(fogEndLoc, endDist);
 
-    // --- CALCUL MATRICE UMBRA (Pentru Y-Up) ---
-    float D = -lightPos.y; // D = -Inaltimea Luminii (pentru planul Y=0)
+    // --- CALCUL MATRICE UMBRA (Corrected for GLM Column-Major) ---
+    float ly = lightPos.y;
+    float lx = lightPos.x;
+    float lz = lightPos.z;
 
-    // Resetam matricea la 0
+    // Resetam matricea
     matrUmbra = glm::mat4(0.0f);
 
-    // Formula matematica pentru proiectie pe planul Y=0
-    // Aceasta pastreaza X si Z, dar "striveste" Y-ul in functie de pozitia luminii
+    // Definirea matricei de proiectie pe planul Y=0
+    // Aceasta matrice proiecteaza punctele astfel incat Y devine 0,
+    // pastrand perspectiva corecta fata de sursa de lumina.
 
-    matrUmbra[0][0] = lightPos.y + D;
-    matrUmbra[0][1] = -lightPos.x;
-    // [0][2] si [0][3] sunt 0
+    // Coloana 0
+    matrUmbra[0][0] = ly;
+    matrUmbra[0][1] = 0;
+    matrUmbra[0][2] = 0;
+    matrUmbra[0][3] = 0;
 
-    // Linia 1 (Axa Y) - Aici se intampla "strivirea"
-    // matrUmbra[1][...] ramane 0 pentru ca Y devine 0 pe plan
+    // Coloana 1 (Aici se intampla proiectia pe baza lui Y)
+    matrUmbra[1][0] = -lx;
+    matrUmbra[1][1] = 0;
+    matrUmbra[1][2] = -lz;
+    matrUmbra[1][3] = -1; // -1 este critic pentru perspectiva (W division)
 
-    matrUmbra[2][1] = -lightPos.z;
-    matrUmbra[2][2] = lightPos.y + D;
+    // Coloana 2
+    matrUmbra[2][0] = 0;
+    matrUmbra[2][1] = 0;
+    matrUmbra[2][2] = ly;
+    matrUmbra[2][3] = 0;
 
-    matrUmbra[3][1] = D;
-    matrUmbra[3][3] = lightPos.y;
+    // Coloana 3
+    matrUmbra[3][0] = 0;
+    matrUmbra[3][1] = 0;
+    matrUmbra[3][2] = 0;
+    matrUmbra[3][3] = ly;
 
-    // Trimitem matricea la shader
     glUniformMatrix4fv(matrUmbraLocation, 1, GL_FALSE, &matrUmbra[0][0]);
 
     // 5. Desenare SOL (Ground)
@@ -295,6 +322,39 @@ void RenderFunction(void)
     glBindVertexArray(VaoId);
     // Avem 6 indici (2 triunghiuri)
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    // --- DESENARE COPACI + UMBRE ---
+
+    // Definim pozitiile copacilor (poti sa le muti si global daca vrei)
+    struct TreePos { glm::vec3 pos; glm::vec3 scale; };
+    std::vector<TreePos> padure = {
+        { glm::vec3(50.0f, 0.0f, -50.0f),  glm::vec3(1.0f) },
+        { glm::vec3(-80.0f, 0.0f, -30.0f), glm::vec3(1.5f) }, // Unul mai mare
+        { glm::vec3(20.0f, 0.0f, 100.0f),  glm::vec3(0.8f) },
+        { glm::vec3(-40.0f, 0.0f, 150.0f), glm::vec3(1.2f) }
+    };
+
+    // Desenam toti copacii NORMALI (Solizi)
+    glUniform1i(codColLocation, 0); // Spunem shaderului: "Fa-i colorati"
+
+    for (auto& treePos : padure) {
+        tree.Render(modelLocation, treePos.pos, treePos.scale);
+    }
+
+    // Desenam UMBRELE tuturor copacilor
+    glUniform1i(codColLocation, 1); // Spunem shaderului: "Fa-i negri si turtiti"
+
+    // TRUC: Pentru a evita "Z-Fighting" (palpaire intre umbra si sol), 
+    // activam Polygon Offset ca sa ridicam umbra un milimetru de pe sol.
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1.0f, -1.0f);
+
+    for (auto& treePos : padure) {
+        // Trimitem ACELEASI pozitii! Shaderul va aplica matrUmbra peste ele.
+        tree.Render(modelLocation, treePos.pos, treePos.scale);
+    }
+
+    glDisable(GL_POLYGON_OFFSET_FILL); // Oprim trucul
 
     glutSwapBuffers();
     glFlush();

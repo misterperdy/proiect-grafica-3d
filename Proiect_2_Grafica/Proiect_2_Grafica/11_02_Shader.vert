@@ -101,7 +101,7 @@ void main(void)
 
         //ex_Color = vec4(finalShadowColor, 1.0);
 
-        ex_FragPos = vec3(shadowWorldPos); 
+        ex_FragPos = shadowWorldPos.xyz / shadowWorldPos.w;
         ex_ViewPos = viewPos;
 
         // Culoarea umbrei e neagra
