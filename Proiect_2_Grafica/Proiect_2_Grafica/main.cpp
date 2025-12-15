@@ -344,6 +344,21 @@ void RenderFunction(void)
     // Desenam UMBRELE tuturor copacilor
     glUniform1i(codColLocation, 1); // Spunem shaderului: "Fa-i negri si turtiti"
 
+    // ACTIVAM TRANSPARENTA (Alpha Blending)
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // --- STENCIL SETUP (Ca sa nu se suprapuna umbrele) ---
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_ALWAYS, 1, 0xFF); // Toti pixelii trec testul
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Daca desenam umbra, punem '1' in stencil
+    glStencilMask(0xFF); // Activam scrierea in stencil
+    glClear(GL_STENCIL_BUFFER_BIT); // Curatam stencilul vechi
+
+    // Setam regula: Desenam doar unde Stencilul este 0 (adica unde nu e deja umbra)
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+    // ----------------------------------------------------
+
     // TRUC: Pentru a evita "Z-Fighting" (palpaire intre umbra si sol), 
     // activam Polygon Offset ca sa ridicam umbra un milimetru de pe sol.
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -355,6 +370,7 @@ void RenderFunction(void)
     }
 
     glDisable(GL_POLYGON_OFFSET_FILL); // Oprim trucul
+    glDisable(GL_BLEND); // oprimi si transaprentea
 
     glutSwapBuffers();
     glFlush();

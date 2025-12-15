@@ -87,6 +87,7 @@ void main(void)
 
         // aplicam matricea de umbra pe pozitia rotita
         vec4 shadowWorldPos = matrUmbra * rotatedPos;
+        shadowWorldPos.y += 0.1; // pt combatere z fighting
         
         //calculam pozitia pe ecran
         gl_Position = projection * view * shadowWorldPos;
@@ -105,7 +106,7 @@ void main(void)
         ex_ViewPos = viewPos;
 
         // Culoarea umbrei e neagra
-        ex_Color = vec4(0.0, 0.0, 0.0, 1.0);
+        ex_Color = vec4(0.1, 0.1, 0.15, 0.5);
     }
    } 
  
