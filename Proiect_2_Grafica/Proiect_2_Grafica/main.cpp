@@ -74,6 +74,15 @@ Tree tree;
 Skybox sky;
 Cloud cloud;
 
+// --- DEFINITIE NORI ---
+struct CloudData {
+    glm::vec3 pos;
+    glm::vec3 scale;
+};
+
+// Lista care va tine toti norii nostri
+std::vector<CloudData> cloudsVector;
+
 // --- FUNCTII CALLBACK INPUT ---
 
 // Apasare tasta
@@ -151,7 +160,45 @@ void DoMovement()
         myCamera.Position.z = -borderLimit;
 }
 
-// --- SETUP GEOMETRIE (DOAR SOLUL) ---
+float RandomFloat(float min, float max) {
+    return min + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (max - min)));
+}
+
+void GenerateClouds() {
+    cloudsVector.clear();
+
+    //numarul de nori care vor fi generati
+    int numClouds = 40;
+
+    for (int i = 0; i < numClouds; i++) {
+        CloudData c;
+
+        // POZITIE (X si Z pe o arie mare, Y sus in cer)
+        // Imprastiem norii pe o suprafata de 800x800 (-400 la +400)
+        float x = RandomFloat(-400.0f, 400.0f);
+        float z = RandomFloat(-400.0f, 400.0f);
+
+        // Inaltimea variaza putin (intre 100 si 180) ca sa nu fie toti la linie
+        float y = RandomFloat(100.0f, 180.0f);
+
+        // Evitam zona din mijloc (unde e jucatorul), ca sa nu ai un nor in cap cand pornesti
+        if (abs(x) < 50.0f && abs(z) < 50.0f) continue;
+
+        c.pos = glm::vec3(x, y, z);
+
+        // 2. SCALARE -Lati si Plati
+        // Latime mare (X), Inaltime mica (Y), Adancime medie (Z)
+        float scaleX = RandomFloat(20.0f, 45.0f);
+        float scaleY = RandomFloat(4.0f, 8.0f);  // Plati
+        float scaleZ = RandomFloat(15.0f, 30.0f);
+
+        c.scale = glm::vec3(scaleX, scaleY, scaleZ);
+
+        cloudsVector.push_back(c);
+    }
+}
+
+// --- SETUP GEOMETRIE sol ---
 void CreateVBO(void)
 {
     // Facem solul imens ca sa treaca dincolo de ceata
@@ -223,6 +270,8 @@ void Initialize(void)
     sky.Init();
     cloud.Init();
 
+    GenerateClouds();
+
     // Locatii Uniforme
     viewLocation = glGetUniformLocation(ProgramId, "view");
     projLocation = glGetUniformLocation(ProgramId, "projection");
@@ -284,24 +333,36 @@ void RenderFunction(void)
     // Setam modul 2: Fara Lumina, Fara Umbra (Culori pure)
     glUniform1i(codColLocation, 2);
 
-    // A. SKYBOX
+    // SKYBOX
     // Oprim testul de adancime ca cerul sa fie desenat "in spatele" tuturor
     glDisable(GL_DEPTH_TEST);
     sky.Render(modelLocation, myCamera.Position);
     glEnable(GL_DEPTH_TEST);  // Il pornim inapoi pentru restul lumii
 
-    // B. NORI (Unii mai mari, unii mai mici)
-    // Nor 1 - Mare si Sus
-    cloud.Render(modelLocation, glm::vec3(0.0f, 100.0f, -150.0f), glm::vec3(30.0f, 8.0f, 15.0f));
+    //NORI
+    // Bucla care deseneaza toti norii generati
+    for (auto& c : cloudsVector)
+    {
+        // ANIMATIE SIMPLA (Vant)
+        // Facem norii sa se miste incet pe axa X
+        // currentFrame e timpul total. Impartim la o valoare mare sa fie lenti.
+        float windOffset = glutGet(GLUT_ELAPSED_TIME) * 0.005f;
 
-    // Nor 2 - In stanga
-    cloud.Render(modelLocation, glm::vec3(-120.0f, 80.0f, -50.0f), glm::vec3(20.0f, 6.0f, 10.0f));
+        // Calculam o pozitie temporara doar pentru desenare
+        glm::vec3 movingPos = c.pos;
+        movingPos.x += windOffset;
 
-    // Nor 3 - In dreapta spate
-    cloud.Render(modelLocation, glm::vec3(150.0f, 120.0f, 50.0f), glm::vec3(25.0f, 7.0f, 12.0f));
+        // TRUC: Daca norul iese din harta (ex: > 400), il mutam inapoi la inceput (-400)
+        // Asta creeaza o bucla infinita de nori
+        if (movingPos.x > 400.0f) {
+            // Scadem 800 ca sa il ducem in partea opusa
+            // Folosim fmod ca sa ramana in ciclu, sau o scadere simpla daca viteza e constanta
+            while (movingPos.x > 400.0f) movingPos.x -= 800.0f;
+        }
 
-    // Nor 4 - Mai aproape
-    cloud.Render(modelLocation, glm::vec3(50.0f, 150.0f, 0.0f), glm::vec3(15.0f, 4.0f, 8.0f));
+        // Desenam norul
+        cloud.Render(modelLocation, movingPos, c.scale);
+    }
 
     // --- CALCUL MATRICE UMBRA---
     float ly = lightPos.y;
