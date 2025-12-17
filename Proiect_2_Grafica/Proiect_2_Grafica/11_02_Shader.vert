@@ -109,7 +109,7 @@ void main(void)
         ex_Color = vec4(0.1, 0.1, 0.15, 0.5);
     }
     // --- SKYBOX & CLOUDS (codCol == 2) ---
-    if ( codCol == 2 )
+    if ( codCol >= 2 )
     {
         // Calculam pozitia standard
         gl_Position = projection * view * model * in_Position;

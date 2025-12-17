@@ -334,63 +334,23 @@ void Cloud::Cleanup() {
 //                       SUN CLASS
 // ==========================================================
 
-Sun::Sun() {
-    VaoId = 0; VboId = 0; EboId = 0;
-}
-
-Sun::~Sun() {
-    Cleanup();
-}
+// --- SUN CLASS ---
+Sun::Sun() { VaoId = 0; VboId = 0; EboId = 0; }
+Sun::~Sun() { Cleanup(); }
 
 void Sun::Init() {
-    // Un cub simplu 1x1x1
+    // Un patrat simplu vertical (fata spre Z)
     float s = 0.5f;
 
-    // Culoare: GALBEN STRALUCITOR
-    float r = 1.0f, g = 1.0f, b = 0.0f;
-
+    // X, Y, Z, W         R,G,B,A (Galben)    Normala (0,0,1)
     std::vector<GLfloat> vertices = {
-        // X, Y, Z, W       R, G, B, A      NX, NY, NZ
-        // Fata
-        -s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
-         s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
-         s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
-        -s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,0,1,
-        // Spate
-        -s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
-         s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
-         s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
-        -s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,0,-1,
-        // Stanga
-        -s, -s, -s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
-        -s, -s,  s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
-        -s,  s,  s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
-        -s,  s, -s, 1.0f,   r, g, b, 1.0f,  -1,0,0,
-        // Dreapta
-         s, -s, -s, 1.0f,   r, g, b, 1.0f,  1,0,0,
-         s, -s,  s, 1.0f,   r, g, b, 1.0f,  1,0,0,
-         s,  s,  s, 1.0f,   r, g, b, 1.0f,  1,0,0,
-         s,  s, -s, 1.0f,   r, g, b, 1.0f,  1,0,0,
-         // Sus
-         -s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,1,0,
-          s,  s, -s, 1.0f,   r, g, b, 1.0f,  0,1,0,
-          s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,1,0,
-         -s,  s,  s, 1.0f,   r, g, b, 1.0f,  0,1,0,
-         // Jos
-         -s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
-          s, -s, -s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
-          s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
-         -s, -s,  s, 1.0f,   r, g, b, 1.0f,  0,-1,0,
+        -s, -s, 0.0f, 1.0f,   1, 1, 0, 1,   0,0,1, // Stanga-Jos
+         s, -s, 0.0f, 1.0f,   1, 1, 0, 1,   0,0,1, // Dreapta-Jos
+         s,  s, 0.0f, 1.0f,   1, 1, 0, 1,   0,0,1, // Dreapta-Sus
+        -s,  s, 0.0f, 1.0f,   1, 1, 0, 1,   0,0,1, // Stanga-Sus
     };
 
-    std::vector<GLuint> indices = {
-        0, 1, 2, 2, 3, 0,       // Fata
-        4, 5, 6, 6, 7, 4,       // Spate
-        8, 9, 10, 10, 11, 8,    // Stanga
-        12, 13, 14, 14, 15, 12, // Dreapta
-        16, 17, 18, 18, 19, 16, // Sus
-        20, 21, 22, 22, 23, 20  // Jos
-    };
+    std::vector<GLuint> indices = { 0, 1, 2, 2, 3, 0 };
 
     glGenVertexArrays(1, &VaoId); glBindVertexArray(VaoId);
     glGenBuffers(1, &VboId); glBindBuffer(GL_ARRAY_BUFFER, VboId);
@@ -405,13 +365,28 @@ void Sun::Init() {
     glBindVertexArray(0);
 }
 
-void Sun::Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale) {
+// ATENTIE: Am modificat Render sa primeasca View Matrix!
+// Avem nevoie de matricea camerei ca sa stim cum sa ne orientam spre ea.
+void Sun::Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale, glm::mat4 viewMatrix) {
     glBindVertexArray(VaoId);
+
+    // --- BILLBOARDING MATH ---
+    // 1. Punem soarele la pozitia luminii
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, position);
+
+    // 2. TRUCUL MAGIC: Anulam rotatia camerei.
+    // Setam partea de rotatie a matricei Model sa fie transpusa matricei View.
+    // Asta face ca obiectul sa fie mereu paralel cu ecranul.
+    model[0][0] = viewMatrix[0][0]; model[0][1] = viewMatrix[1][0]; model[0][2] = viewMatrix[2][0];
+    model[1][0] = viewMatrix[0][1]; model[1][1] = viewMatrix[1][1]; model[1][2] = viewMatrix[2][1];
+    model[2][0] = viewMatrix[0][2]; model[2][1] = viewMatrix[1][2]; model[2][2] = viewMatrix[2][2];
+
+    // 3. Scalam
     model = glm::scale(model, scale);
+
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &model[0][0]);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 

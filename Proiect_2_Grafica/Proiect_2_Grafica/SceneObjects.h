@@ -56,14 +56,14 @@ private:
 };
 
 // --- SOARE (Un cub galben stralucitor) ---
-class Sun
-{
+class Sun {
 public:
     GLuint VaoId, VboId, EboId;
     Sun();
     ~Sun();
     void Init();
-    void Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale);
+    // Am adaugat parametrul "glm::mat4 viewMatrix" la final
+    void Render(GLuint modelLocation, glm::vec3 position, glm::vec3 scale, glm::mat4 viewMatrix);
 private:
     void Cleanup();
 };

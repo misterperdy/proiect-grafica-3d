@@ -347,12 +347,28 @@ void RenderFunction(void)
     sky.Render(modelLocation, myCamera.Position);
     glEnable(GL_DEPTH_TEST);  // Il pornim inapoi pentru restul lumii
 
-    // SOARELE
-    // Il desenam exact unde este sursa de lumina (lightPos)
-    // Il facem mare (scale 20.0f) ca sa para impunator
-    sun.Render(modelLocation, lightPos, glm::vec3(20.0f));
+    // =========================================================
+    //                DESENARE SOARE 
+    // =========================================================
+
+    // Setam codul 4 (Galben/Soare)
+    glUniform1i(codColLocation, 4);
+
+    // Oprim Depth Test (Sa straluceasca peste cer)
+    glDisable(GL_DEPTH_TEST);
+
+    // Desenam. 
+    // Parametrul nou 'view' este critic pentru a roti soarele spre noi.
+    // Scale 15.0f este suficient pentru un billboard.
+    sun.Render(modelLocation, lightPos, glm::vec3(15.0f), view);
+
+    glEnable(GL_DEPTH_TEST);
+
 
     //NORI
+    // 
+    glUniform1i(codColLocation, 2);
+
     // Bucla care deseneaza toti norii generati
     for (auto& c : cloudsVector)
     {
@@ -369,7 +385,6 @@ void RenderFunction(void)
         // Asta creeaza o bucla infinita de nori
         if (movingPos.x > 400.0f) {
             // Scadem 800 ca sa il ducem in partea opusa
-            // Folosim fmod ca sa ramana in ciclu, sau o scadere simpla daca viteza e constanta
             while (movingPos.x > 400.0f) movingPos.x -= 800.0f;
         }
 
@@ -482,15 +497,7 @@ void RenderFunction(void)
     // 1. Oprim Depth Test (Sa fie desenat PESTE orice altceva)
     glDisable(GL_DEPTH_TEST);
 
-    // 2. Setam culoarea ALBA (folosind Override-ul de la Soare/Glow daca il ai implementat)
-    // Daca nu ai implementat inca partea cu overrideColor, poti sari peste liniile astea 
-    // sau folosesti codCol=0 si te bazezi pe culoarea din vertices (care e alba).
 
-    // Varianta sigura (daca ai implementat variabilele globale pt override):
-    // glUniform1i(codColLocation, 3); 
-    // glUniform4f(overrideColorLoc, 1.0f, 1.0f, 1.0f, 1.0f); 
-
-    // Varianta simpla (Daca NU ai facut modificarile de la promptul cu soarele):
     glUniform1i(codColLocation, 2); // Unlit (ia culoarea din buffer, care e alba)
 
 
@@ -519,7 +526,7 @@ int main(int argc, char* argv[])
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowPosition(100, 100);
     glutInitWindowSize((int)width, (int)height);
-    glutCreateWindow("Proiect - Camera FPS & Ground");
+    glutCreateWindow("Proiect - campie cu copaci");
 
     glewInit();
     Initialize();
