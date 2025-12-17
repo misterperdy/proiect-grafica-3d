@@ -9,6 +9,7 @@
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include <vector>
+#include "stb_image.h"
 
 #include "loadShaders.h"
 #include "glm/glm.hpp"
@@ -40,7 +41,9 @@ fogStartLoc,
 fogEndLoc,
 modelLocation,
 matrUmbraLocation,
-overrideColorLoc;
+overrideColorLoc,
+diffuseMap,
+normalMap;
 
 // --- CAMERA SETTINGS ---
 // Pozitionam camera la inaltime (Y=10) si putin in spate (Z=50)
@@ -204,47 +207,60 @@ void GenerateClouds() {
 // --- SETUP GEOMETRIE sol ---
 void CreateVBO(void)
 {
-    // Facem solul imens ca sa treaca dincolo de ceata
-    float groundSize = 1000.0f;
+    float size = 1000.0f; // Marimea solului
+    float uvRepeat = 50.0f; // De cate ori se repeta textura
+
+    // Format vertex nou:
+    // X, Y, Z (Pos) | NX, NY, NZ (Normal) | U, V (Tex) | TX, TY, TZ (Tangent)
 
     GLfloat Vertices[] = {
-        // X, Y, Z, W                           // Culoare verde          // Normala pt normal mappingg
-        -groundSize, 0.0f, -groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
-         groundSize, 0.0f, -groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
-         groundSize, 0.0f,  groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
-        -groundSize, 0.0f,  groundSize, 1.0f,   0.2f, 0.6f, 0.2f, 1.0f,   0.0f, 1.0f, 0.0f,
+        // Pozitie (Y=0)        // Normala (Sus)    // UV (Colturi)      // Tangenta (Dreapta)
+        // Stanga-Jos (-X, -Z)
+        -size, 0.0f,  size,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f,          1.0f, 0.0f, 0.0f,
+        // Dreapta-Jos (+X, -Z)
+         size, 0.0f,  size,     0.0f, 1.0f, 0.0f,   uvRepeat, 0.0f,      1.0f, 0.0f, 0.0f,
+         // Dreapta-Sus (+X, +Z)
+          size, 0.0f, -size,     0.0f, 1.0f, 0.0f,   uvRepeat, uvRepeat,  1.0f, 0.0f, 0.0f,
+          // Stanga-Sus (-X, +Z)
+          -size, 0.0f, -size,     0.0f, 1.0f, 0.0f,   0.0f, uvRepeat,      1.0f, 0.0f, 0.0f,
     };
 
-    // Indici (2 triunghiuri ce formeaza patratul)
     GLuint Indices[] = {
         0, 1, 2,
         0, 2, 3
     };
 
-    // Generare Buffere
-    glGenVertexArrays(1, &VaoId);
-    glBindVertexArray(VaoId);
-
-    glGenBuffers(1, &VboId);
-    glBindBuffer(GL_ARRAY_BUFFER, VboId);
+    glGenVertexArrays(1, &VaoId); glBindVertexArray(VaoId);
+    glGenBuffers(1, &VboId); glBindBuffer(GL_ARRAY_BUFFER, VboId);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &EboId);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EboId);
+    glGenBuffers(1, &EboId); glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EboId);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
 
-    // Atribute (Layout-ul din Shader)
-    // 0: Pozitie (vec4)
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid*)0);
+    // TOTAL STRIDE = 3+3+2+3 = 11 floats
+    int stride = 11 * sizeof(GLfloat);
+
+    // Atribut 0: Pozitie (3 floats)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
 
-    // 1: Culoare (vec4)
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid*)(4 * sizeof(GLfloat)));
+    // Atribut 1: Culoare (DEZACTIVAT/SCOS) 
+    // OBS: Am scos culoarea vertexului pt ca folosim textura.
+    // Dar ca sa nu stricam ordinea in shader (unde 1 era Color), putem sa sarim peste 1 sau sa punem altceva.
+    // Hai sa punem Normalele pe locatia 1 momentan, dar va trebui sa schimbam in Shader layout-ul!
+    // PLAN:
+    // Loc 0 = Pos
+    // Loc 1 = Normal
+    // Loc 2 = TexCoord
+    // Loc 3 = Tangent
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat))); // Normal
     glEnableVertexAttribArray(1);
 
-    // 2: Normala (vec3)
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid*)(8 * sizeof(GLfloat)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(GLfloat))); // UV
     glEnableVertexAttribArray(2);
+
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat))); // Tangent
+    glEnableVertexAttribArray(3);
 }
 
 void Cleanup(void)
@@ -261,6 +277,48 @@ void CreateShaders(void)
     glUseProgram(ProgramId);
 }
 
+GLuint LoadTexture(const char* path)
+{
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    // stbi_load incarca imaginea si ne da pixelii
+    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+
+    if (data)
+    {
+        GLenum format;
+        if (nrComponents == 1) format = GL_RED;
+        else if (nrComponents == 3) format = GL_RGB; // jpg are de obicei 3
+        else format = GL_RGBA; // png are de obicei 4
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+
+        // Trimitem pixelii la placa video
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D); // Genereaza versiuni mai mici pt distanta
+
+        // Setari de Tiling (Repetare)
+        // GL_REPEAT e critic pt iarba, ca sa nu se intinda o singura poza pe 1000m
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+        // Setari de Filtrare (Sa nu se vada pixelat cand e aproape/departe)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data); // Eliberam memoria RAM, acum e in VRAM
+    }
+    else
+    {
+        printf("Texture failed to load at path: %s\n", path);
+        stbi_image_free(data);
+    }
+
+    return textureID;
+}
+
 void Initialize(void)
 {
     // Fundalul are culoarea cetii (albastru deschis de zi)
@@ -268,6 +326,11 @@ void Initialize(void)
 
     CreateShaders();
     CreateVBO();
+
+    stbi_set_flip_vertically_on_load(true);
+
+    diffuseMap = LoadTexture("C:\\Users\\Azlo\\source\\repos\\Proiect_2_Grafica\\Proiect_2_Grafica\\grass_diff.jpg");
+    normalMap = LoadTexture("C:\\Users\\Azlo\\source\\repos\\Proiect_2_Grafica\\Proiect_2_Grafica\\grass_norm.jpg");
 
     //initializam o singura data obiectele noastre si trimitem datele la GPU
     tree.Init();
@@ -430,14 +493,26 @@ void RenderFunction(void)
 
     glUniformMatrix4fv(matrUmbraLocation, 1, GL_FALSE, &matrUmbra[0][0]);
 
-    // 5. Desenare SOL (Ground)
-    // Matricea model este Identity (Solul sta pe loc la 0,0,0)
+    // =========================================================
+    //                DESENARE SOL (TEXTURED)
+    // =========================================================
+
+    // 1. Setam codul 5 (Iarba cu Texturi)
+    glUniform1i(codColLocation, 5);
+
+    // 2. Activam Textura 0 (Diffuse)
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
+    glUniform1i(glGetUniformLocation(ProgramId, "diffuseMap"), 0);
+
+    // 3. Activam Textura 1 (Normal)
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normalMap);
+    glUniform1i(glGetUniformLocation(ProgramId, "normalMap"), 1);
+
+    // 4. Desenam
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-
-    glUniform1i(codColLocation, 0); // Mod normal de desenare (nu umbra)
-
     glBindVertexArray(VaoId);
-    // Avem 6 indici (2 triunghiuri)
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
     // --- DESENARE COPACI + UMBRE ---
