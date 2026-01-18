@@ -1,0 +1,26 @@
+# Blender 3.3.6 MTL File: 'log_cgt_5.blend'
+# www.blender.org
+
+newmtl log_ends
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd 2k_log_textures/TreeEnd002_2K_Color.png
+map_Ns 2k_log_textures/TreeEnd002_2K_Roughness.png
+map_refl 2k_log_textures/2k_log_metallic.png
+map_Bump -bm 1.000000 2k_log_textures/TreeEnd002_2K_Normal.png
+
+newmtl logcolor
+Ka 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd 2k_log_textures/2Kcolor.jpg
+map_Ks 2k_log_textures/2Kspecular.jpg
+map_Ns 2k_log_textures/2k_bark_roughness_c.png
+map_refl 2k_log_textures/2k_log_metallic.png
+map_Bump -bm 1.000000 2k_log_textures/2Knormal.jpg
